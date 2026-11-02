@@ -1,0 +1,1174 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Denver_Oke - ระบบคาราโอเกะออนไลน์ ค้นหาเพลง YouTube ไม่จำกัด</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome for Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- QR Code Generator -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <!-- Google Fonts Prompt -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+    <style>
+        body {
+            font-family: 'Prompt', sans-serif;
+            background-color: #0f1117;
+            color: #f1f5f9;
+        }
+        /* Custom Scrollbar แบบ okeforyou */
+        ::-webkit-scrollbar {
+            width: 5px;
+            height: 5px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #111827;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #273549;
+            border-radius: 9999px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #e11d48;
+        }
+        .aspect-video-player {
+            position: relative;
+            width: 100%;
+            height: 100%;
+        }
+        .aspect-video-player iframe,
+        .aspect-video-player #ytPlayer {
+            width: 100%;
+            height: 100%;
+            border: none;
+        }
+        @media (max-width:767px){
+            body{height:100dvh !important}
+            body.view-player #centerCatalogPanel{display:none}
+            /* ซ่อนแผงเครื่องเล่นแบบนอกจอ (ไม่ใช้ display:none) เพื่อให้วิดีโอยังโหลด/เล่นต่อได้ตอนอยู่หน้าอื่น */
+            body:not(.view-player) #rightPlayerPanel{position:fixed;left:-200vw;top:0;width:100vw;height:100dvh}
+        }
+        @media (min-width:768px){body.remote-only #rightPlayerPanel{display:none}}
+    </style>
+</head>
+<body class="h-screen w-screen overflow-hidden flex flex-col bg-[#0f1117] select-none text-slate-200">
+
+    <!-- Top Navigation Bar (ตรงตามดีไซน์ okeforyou) -->
+    <header class="h-14 bg-[#161b26] border-b border-slate-800 px-3 md:px-5 flex items-center justify-between shrink-0 shadow-md z-30">
+        <div class="flex items-center gap-3">
+            <button onclick="toggleSidebarMenu()" class="hidden md:flex w-9 h-9 rounded-lg hover:bg-slate-800 text-slate-300 items-center justify-center transition">
+                <i class="fa-solid fa-bars text-base"></i>
+            </button>
+            <div class="flex items-center gap-2 cursor-pointer" onclick="goToHome()">
+                <div class="w-8 h-8 rounded-lg bg-gradient-to-tr from-rose-600 to-pink-500 flex items-center justify-center text-white shadow-md shadow-rose-600/30">
+                    <i class="fa-solid fa-microphone text-sm"></i>
+                </div>
+                <div class="leading-none">
+                    <h1 class="text-lg font-bold tracking-tight text-white flex items-center gap-1">
+                        Denver_<span class="text-rose-500">Oke</span>
+                    </h1>
+                </div>
+            </div>
+        </div>
+
+        <!-- Room, Cast & Device Mode -->
+        <div class="flex items-center gap-2">
+            <div class="hidden lg:flex bg-slate-800/90 px-3 py-1 rounded-full border border-slate-700/60 items-center gap-2 text-xs text-slate-300">
+                <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                <span>ห้อง: <strong id="roomCodeDisplay" class="text-rose-400 font-mono tracking-wider">TH-3867</strong></span>
+            </div>
+            
+            <button onclick="setApiKey()" title="ตั้งค่า YouTube API Key" class="w-8 h-8 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 flex items-center justify-center border border-slate-700"><i class="fa-solid fa-gear text-xs"></i></button>
+            <button onclick="toggleMobileRemoteModal()" class="px-3 py-1.5 bg-rose-600 hover:bg-rose-500 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 shadow transition-all active:scale-95">
+                <i class="fa-solid fa-qrcode"></i>
+                <span class="hidden sm:inline">เชื่อมต่อมือถือ</span>
+            </button>
+            
+            <button onclick="toggleViewMode()" id="viewModeBtn" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg text-xs font-medium border border-slate-700 hidden md:flex items-center gap-1.5 transition-all">
+                <i class="fa-solid fa-mobile-screen"></i>
+                <span class="hidden sm:inline">โหมดรีโมทมือถือ</span>
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Workspace Layout -->
+    <div class="flex-1 flex overflow-hidden">
+        
+        <!-- Left Sidebar Navigation Menu (แบบ okeforyou: หน้าหลัก, ชาร์ตเพลง, สถานีเพลง, เพลย์ลิสต์) -->
+        <aside id="mainSidebar" class="w-52 bg-[#161b26] border-r border-slate-800/80 hidden md:flex flex-col justify-between py-4 px-3 shrink-0">
+            <div class="space-y-4">
+                <div class="text-[11px] font-semibold text-slate-400 px-3 uppercase tracking-wider">เมนูหลัก</div>
+                <nav class="space-y-1">
+                    <button data-nav="home" onclick="goToHome()" class="sidebar-nav-btn w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium bg-rose-600 text-white shadow-sm transition">
+                        <i class="fa-solid fa-house w-4 text-center"></i>
+                        <span>หน้าหลัก</span>
+                    </button>
+                    <button data-nav="chart" onclick="filterPresetCategory('chart')" class="sidebar-nav-btn w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-slate-300 hover:bg-slate-800/70 hover:text-white transition">
+                        <i class="fa-solid fa-chart-line w-4 text-center text-slate-400"></i>
+                        <span>ชาร์ตเพลง</span>
+                    </button>
+                    <button data-nav="station" onclick="filterPresetCategory('station')" class="sidebar-nav-btn w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-slate-300 hover:bg-slate-800/70 hover:text-white transition">
+                        <i class="fa-solid fa-headphones w-4 text-center text-slate-400"></i>
+                        <span>สถานีเพลง</span>
+                    </button>
+                    <button data-nav="playlist" onclick="filterPresetCategory('playlist')" class="sidebar-nav-btn w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-slate-300 hover:bg-slate-800/70 hover:text-white transition">
+                        <i class="fa-solid fa-list-check w-4 text-center text-slate-400"></i>
+                        <span>เพลย์ลิสต์</span>
+                    </button>
+                </nav>
+            </div>
+
+            <div class="pt-4 border-t border-slate-800 space-y-2">
+                <div class="text-[11px] text-slate-500 px-3">Denver_Oke v5.5 (YouOke OS)</div>
+            </div>
+        </aside>
+
+        <!-- Center Workspace: ค้นหาเพลง, ศิลปินยอดฮิต, สารบัญเพลง -->
+        <section id="centerCatalogPanel" class="flex-1 flex flex-col bg-[#0f1117] min-h-0 overflow-hidden">
+            
+            <!-- Search Bar Area แบบ okeforyou (มีปุ่มสลับ [เพลง] / [คาราโอเกะ]) -->
+            <div class="p-3.5 border-b border-slate-800/80 bg-[#161b26]/60 shrink-0">
+                <div class="max-w-3xl mx-auto flex flex-col sm:flex-row gap-2">
+                    <div class="relative flex-1 flex items-center">
+                        <i class="fa-solid fa-magnifying-glass absolute left-3.5 text-slate-400 text-sm"></i>
+                        <input 
+                            type="text" 
+                            id="songSearchInput" 
+                            placeholder="ค้นหาชื่อเพลง, ศิลปิน, วง, อัลบั้ม (เช่น บอดี้สแลม, โลโซ, ก้อง ห้วยไร่, Klear)..."
+                            onkeydown="if(event.key === 'Enter') executeOmniSearch()"
+                            class="w-full bg-[#1e2536] border border-slate-700/80 rounded-xl pl-10 pr-24 py-2.5 text-sm text-white placeholder-slate-400 focus:outline-none focus:border-rose-500 focus:ring-1 focus:ring-rose-500 transition shadow-inner"
+                        >
+                        <!-- Type Switcher แบบ okeforyou -->
+                        <div class="absolute right-1.5 flex items-center gap-1 bg-slate-900/80 p-0.5 rounded-lg border border-slate-700 text-[11px]">
+                            <button id="typeKaraokeBtn" onclick="toggleSearchType(true)" class="px-2 py-1 rounded bg-rose-600 text-white font-medium flex items-center gap-1 transition">
+                                <i class="fa-solid fa-microphone text-[10px]"></i> คาราโอเกะ
+                            </button>
+                            <button id="typeAllBtn" onclick="toggleSearchType(false)" class="px-2 py-1 rounded text-slate-400 hover:text-white transition">
+                                เพลง
+                            </button>
+                        </div>
+                    </div>
+                    <button 
+                        id="searchActionBtn"
+                        onclick="executeOmniSearch()" 
+                        class="px-5 py-2.5 bg-rose-600 hover:bg-rose-500 active:scale-95 text-white rounded-xl text-sm font-semibold transition shadow flex items-center justify-center gap-2">
+                        <i class="fa-solid fa-magnifying-glass"></i>
+                        <span>ค้นหา</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Scrollable Content View: Home/Results -->
+            <div class="flex-1 overflow-y-auto p-4 space-y-6" id="mainContentScroll">
+                
+                <!-- Loading Indicator -->
+                <div id="searchSpinner" class="hidden py-16 flex flex-col items-center justify-center text-slate-400 gap-3">
+                    <i class="fa-solid fa-circle-notch fa-spin text-3xl text-rose-500"></i>
+                    <p class="text-sm font-medium">กำลังค้นหาวิดีโอคาราโอเกะทั้งหมดจาก YouTube...</p>
+                </div>
+
+                <!-- Container 1: ผลการค้นหา (จะแสดงเมื่อผู้ใช้ค้นหา) -->
+                <div id="searchResultsSection" class="hidden space-y-3">
+                    <div class="flex items-center justify-between border-b border-slate-800 pb-2">
+                        <h2 class="text-sm font-bold text-white flex items-center gap-2" id="searchResultTitle">
+                            <i class="fa-solid fa-music text-rose-500"></i> ผลการค้นหาวิดีโอคาราโอเกะ
+                        </h2>
+                        <span class="text-xs text-slate-400 font-mono" id="searchResultCount">0 รายการ</span>
+                    </div>
+                    <div id="searchResultsGrid" class="grid grid-cols-1 lg:grid-cols-2 2xl:grid-cols-3 gap-3">
+                        <!-- Populated by JS -->
+                    </div>
+                </div>
+
+                <!-- Container 2: หน้าหลัก (ศิลปินยอดฮิต + หมวดหมู่เพลง เหมือน play.okeforyou.com) -->
+                <div id="homeDefaultSection" class="space-y-6">
+                    
+                    <!-- ส่วนที่ 1: ศิลปินยอดฮิต (Top Artists) -->
+                    <div>
+                        <div class="flex items-center justify-between mb-3">
+                            <div>
+                                <h3 class="text-base font-bold text-white">ศิลปินยอดฮิต</h3>
+                                <p class="text-xs text-slate-400">ชื่อที่คุณคุ้นเคยและชื่นชอบ (คลิกเพื่อดูเพลงทั้งหมด)</p>
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-3" id="topArtistsGrid">
+                            <!-- Populated by JS -->
+                        </div>
+                    </div>
+
+                    <!-- ส่วนที่ 2: สารบัญศิลปินและแนวเพลง (Artist Directory & Genres) -->
+                    <div>
+                        <div class="flex items-center justify-between mb-3">
+                            <div>
+                                <h3 class="text-base font-bold text-white">สารบัญเพลงและหมวดหมู่</h3>
+                                <p class="text-xs text-slate-400">แยกตามแนวเพลงและยุคสมัย</p>
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2.5" id="genreCategoryGrid">
+                            <!-- Populated by JS -->
+                        </div>
+                    </div>
+
+                    <!-- ส่วนที่ 3: เพลงคาราโอเกะฮิตติดชาร์ต -->
+                    <div>
+                        <div class="flex items-center justify-between mb-3">
+                            <div>
+                                <h3 class="text-base font-bold text-white">คาราโอเกะยอดนิยมแนะนำ</h3>
+                                <p class="text-xs text-slate-400">เพลงตัดเสียงร้องพร้อมสำหรับปาร์ตี้</p>
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-1 lg:grid-cols-2 2xl:grid-cols-3 gap-3" id="featuredKaraokeGrid">
+                            <!-- Populated by JS -->
+                        </div>
+                    </div>
+
+                </div>
+
+            </div>
+        </section>
+
+        <!-- Right Panel: Player & Queues (ตรงตามเลย์เอาต์ okeforyou) -->
+        <section id="rightPlayerPanel" class="w-full md:w-[380px] lg:w-[420px] flex flex-col bg-[#141822] min-h-0 border-l border-slate-800 shrink-0">
+            
+            <!-- Video Player Stage -->
+            <div class="relative w-full aspect-video bg-black flex items-center justify-center overflow-hidden border-b border-slate-800 shadow-2xl">
+                <div id="playerContainer" class="w-full h-full aspect-video-player">
+                    <div id="ytPlayer"></div>
+                </div>
+
+                <!-- Embed Error Auto-Fallback & Direct Mode Overlay -->
+                <div id="embedErrorBanner" class="absolute inset-0 flex flex-col items-center justify-center bg-slate-950/95 p-4 text-center hidden z-20">
+                    <div class="w-11 h-11 rounded-full bg-rose-500/20 text-rose-400 flex items-center justify-center text-lg mb-2">
+                        <i class="fa-solid fa-shield-halved"></i>
+                    </div>
+                    <h4 class="text-xs font-bold text-white mb-1">คลิปนี้ถูกค่ายเพลงปิดกั้นการฝังเล่น (Embed)</h4>
+                    <p class="text-[11px] text-slate-400 max-w-xs mb-3" id="embedErrorDesc">
+                        กำลังค้นหาเวอร์ชันดนตรีสดคาราโอเกะ หรือคุณสามารถเปิดด้วยระบบ 2 หน้าจอ
+                    </p>
+                    <div class="flex flex-wrap items-center justify-center gap-2">
+                        <button onclick="autoFindAlternativeCover()" class="px-3 py-1.5 bg-rose-600 hover:bg-rose-500 text-white text-xs rounded-lg font-medium transition flex items-center gap-1 shadow">
+                            <i class="fa-solid fa-arrows-rotate"></i> สลับเวอร์ชันดนตรีสด
+                        </button>
+                        <a id="externalYtLink" href="#" target="_blank" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs rounded-lg font-medium transition flex items-center gap-1">
+                            <i class="fa-brands fa-youtube text-red-500"></i> ดูบน YouTube
+                        </a>
+                        <button onclick="openTwoScreenMonitor()" class="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs rounded-lg font-medium transition flex items-center gap-1">
+                            <i class="fa-solid fa-tv"></i> โหมด 2 หน้าจอ
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Empty Banner -->
+                <div id="emptyPlayerBanner" class="absolute inset-0 flex flex-col items-center justify-center bg-slate-950/95 p-4 text-center pointer-events-none">
+                    <div class="w-12 h-12 rounded-2xl bg-rose-600/10 border border-rose-500/20 text-rose-500 flex items-center justify-center text-xl mb-2">
+                        <i class="fa-solid fa-microphone-lines"></i>
+                    </div>
+                    <h3 class="text-sm font-semibold text-white">Denver_Oke พร้อมใช้งาน</h3>
+                    <p class="text-xs text-slate-400 mt-1 max-w-xs">ค้นหาเพลงหรือคลิกเลือกศิลปินเพื่อเริ่มร้อง</p>
+                </div>
+
+                <!-- Now Playing Floating Title -->
+                <div id="nowPlayingBadge" class="hidden absolute top-2 left-2 bg-black/80 backdrop-blur-md px-2.5 py-1 rounded-md text-[11px] font-medium text-white border border-white/10 flex items-center gap-2 max-w-[90%] truncate z-10">
+                    <span class="w-2 h-2 rounded-full bg-rose-500 animate-ping shrink-0"></span>
+                    <span class="truncate" id="currentSongTitle">ชื่อเพลง</span>
+                </div>
+            </div>
+
+            <!-- Player Controls แบบ okeforyou (เล่น/หยุด, ร้องซ้ำ, เพลงถัดไป, ปิดเสียง, 2 หน้าจอ/เต็มจอ) -->
+            <div class="p-2.5 bg-[#161b26] border-b border-slate-800 grid grid-cols-4 gap-1 text-center text-xs">
+                <button onclick="togglePlayPause()" id="playPauseBtn" class="flex flex-col items-center justify-center py-1.5 rounded-lg bg-rose-600 hover:bg-rose-500 text-white transition active:scale-95 shadow">
+                    <i class="fa-solid fa-play text-xs"></i>
+                    <span class="text-[9px] mt-0.5">เล่น/หยุด</span>
+                </button>
+                <button onclick="controlPlayer('replay')" class="flex flex-col items-center justify-center py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 transition active:scale-95">
+                    <i class="fa-solid fa-rotate-left text-xs"></i>
+                    <span class="text-[9px] mt-0.5">ร้องซ้ำ</span>
+                </button>
+                <button onclick="controlPlayer('next')" class="flex flex-col items-center justify-center py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 transition active:scale-95">
+                    <i class="fa-solid fa-forward-step text-xs"></i>
+                    <span class="text-[9px] mt-0.5">ถัดไป</span>
+                </button>
+                <button onclick="skipAdOrIntro()" title="ข้ามโฆษณา หรือ ข้ามอินโทร 5 วินาที" class="flex flex-col items-center justify-center py-1.5 rounded-lg bg-amber-600/30 hover:bg-amber-600 text-amber-300 hover:text-white transition active:scale-95 border border-amber-500/40">
+                    <i class="fa-solid fa-forward-fast text-xs"></i>
+                    <span class="text-[9px] mt-0.5">ข้าม Ads</span>
+                </button>
+                <button onclick="openTwoScreenMonitor()" title="ระบบ 2 หน้าจอแบบ okeforyou" class="flex flex-col items-center justify-center py-1.5 rounded-lg bg-slate-800 hover:bg-indigo-600 text-slate-300 hover:text-white transition active:scale-95">
+                    <i class="fa-solid fa-tv text-xs"></i>
+                    <span class="text-[9px] mt-0.5">2 หน้าจอ</span>
+                </button>
+                <button onclick="toggleFullScreen()" class="flex flex-col items-center justify-center py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 transition active:scale-95">
+                    <i class="fa-solid fa-expand text-xs"></i>
+                    <span class="text-[9px] mt-0.5">เต็มจอ</span>
+                </button>
+                <button onclick="findKaraokeVersion()" title="สลับเป็นเวอร์ชันคาราโอเกะ (ตัดเสียงร้อง) ของเพลงนี้" class="flex flex-col items-center justify-center py-1.5 rounded-lg bg-emerald-600/30 hover:bg-emerald-600 text-emerald-300 hover:text-white border border-emerald-500/40 transition active:scale-95">
+                    <i class="fa-solid fa-microphone-lines-slash text-xs"></i>
+                    <span class="text-[9px] mt-0.5">ตัดเสียงร้อง</span>
+                </button>
+                <button id="ccBtn" onclick="toggleCC()" title="เปิด/ปิดคำบรรยาย (CC)" class="flex flex-col items-center justify-center py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 transition active:scale-95">
+                    <i class="fa-solid fa-closed-captioning text-xs"></i>
+                    <span class="text-[9px] mt-0.5">คำบรรยาย CC</span>
+                </button>
+            </div>
+
+            <!-- Playlist Queue Section -->
+            <div class="flex-1 flex flex-col min-h-0 bg-[#121620]">
+                <div class="px-3.5 py-2.5 bg-[#161b26] border-b border-slate-800 flex items-center justify-between">
+                    <div class="flex items-center gap-2">
+                        <span class="text-xs font-bold text-white flex items-center gap-1.5">
+                            <i class="fa-solid fa-list-ol text-rose-500"></i> คิวเพลง
+                        </span>
+                        <span id="queueCounter" class="bg-rose-950 text-rose-300 text-[10px] font-bold px-2 py-0.5 rounded-full border border-rose-800/40">0 เพลง</span>
+                    </div>
+                    <button onclick="clearQueue()" class="text-[11px] text-slate-400 hover:text-rose-400 transition flex items-center gap-1">
+                        <i class="fa-solid fa-trash-can text-[10px]"></i> ล้างทั้งหมด
+                    </button>
+                </div>
+
+                <!-- Scrollable Queue List -->
+                <div id="queueList" class="flex-1 overflow-y-auto p-2.5 space-y-2">
+                    <!-- Populated by JS -->
+                </div>
+            </div>
+
+        </section>
+
+    </div>
+
+    <nav class="md:hidden shrink-0 h-14 bg-[#161b26] border-t border-slate-800 grid grid-cols-2 text-[11px] z-30">
+        <button id="navHome" onclick="setMobileView('home')" class="flex flex-col items-center justify-center gap-0.5 text-rose-400"><i class="fa-solid fa-house"></i>หน้าหลัก</button>
+        <button id="navPlayer" onclick="setMobileView('player')" class="relative flex flex-col items-center justify-center gap-0.5 text-slate-400"><i class="fa-solid fa-circle-play"></i>เครื่องเล่นและคิว <span id="navQueueBadge" class="hidden absolute top-1.5 right-[22%] bg-rose-600 text-white text-[9px] px-1.5 rounded-full"></span></button>
+    </nav>
+    <div id="toast" class="fixed bottom-20 md:bottom-6 left-1/2 -translate-x-1/2 bg-slate-900 border border-slate-700 text-xs text-white px-4 py-2 rounded-full shadow-lg opacity-0 pointer-events-none transition-opacity z-[60]"></div>
+
+    <!-- Mobile Remote Connect Modal -->
+    <div id="mobileRemoteModal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-[#161b26] border border-slate-800 w-full max-w-sm rounded-2xl p-5 shadow-2xl relative">
+            <button onclick="toggleMobileRemoteModal()" class="absolute top-3.5 right-3.5 w-8 h-8 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-400 flex items-center justify-center transition">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+            <div class="text-center mb-4">
+                <div class="w-12 h-12 bg-rose-500/10 text-rose-500 rounded-2xl flex items-center justify-center text-xl mx-auto mb-2 border border-rose-500/20">
+                    <i class="fa-solid fa-mobile-screen-button"></i>
+                </div>
+                <h3 class="text-base font-bold text-white">Denver_Oke รีโมทมือถือ</h3>
+                <p class="text-xs text-slate-400 mt-1">สแกน QR Code เพื่อนั่งเลือกเพลงและจัดคิวผ่านมือถือ</p>
+            </div>
+
+            <div class="bg-white p-3 rounded-xl flex items-center justify-center mx-auto w-48 h-48 shadow-inner" id="qrcodeCanvas"></div>
+
+            <div class="mt-4 text-center">
+                <div class="text-xs text-slate-400 mb-1">รหัสห้องสำหรับควบคุม:</div>
+                <div class="text-lg font-mono font-bold tracking-widest text-rose-400 bg-slate-800/80 py-1.5 rounded-lg border border-slate-700" id="modalRoomCode">
+                    TH-3867
+                </div>
+                <p id="remoteUrlHint" class="text-[10px] text-slate-500 mt-2 break-all"></p>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/peerjs/1.5.4/peerjs.min.js"></script>
+    <!-- YouTube IFrame API Script -->
+    <script src="https://www.youtube.com/iframe_api"></script>
+
+    <script>
+        /**
+         * State Management
+         */
+        const REMOTE_ROOM = new URLSearchParams(location.search).get('room');
+        const IS_REMOTE = !!REMOTE_ROOM;
+        const AppState = {
+            roomCode: (() => { try { let c = localStorage.getItem('troom'); if (!c) { c = 'TH-' + Math.floor(1000 + Math.random() * 9000); localStorage.setItem('troom', c); } return c; } catch (e) { return 'TH-' + Math.floor(1000 + Math.random() * 9000); } })(),
+            currentSong: null,
+            queue: (() => { try { return JSON.parse(localStorage.getItem('tq') || '[]'); } catch (e) { return []; } })(),
+            isRemoteOnlyMode: false,
+            isPlaying: false,
+            isKaraokeOnlyMode: true // สลับระหว่างโหมดคาราโอเกะ (ตัดเสียง) กับเพลงปกติ
+        };
+
+        // ฐานข้อมูลศิลปินยอดฮิตแบบครบถ้วนตาม play.okeforyou.com
+        const PopularArtistsList = [
+            { name: "เคลียร์ (KLEAR)", query: "KLEAR", photo: "https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?w=300&auto=format&fit=crop&q=80" },
+            { name: "ค็อกเทล (Cocktail)", query: "Cocktail", photo: "https://images.unsplash.com/photo-1465847899084-d164df4dedc6?w=300&auto=format&fit=crop&q=80" },
+            { name: "บิ๊กแอส (Big Ass)", query: "Big Ass", photo: "https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=300&auto=format&fit=crop&q=80" },
+            { name: "หนุ่ม กะลา (NUM KALA)", query: "หนุ่ม กะลา", photo: "https://images.unsplash.com/photo-1508700115892-45ecd05ae2ad?w=300&auto=format&fit=crop&q=80" },
+            { name: "ซิลลี่ ฟูลส์ (Silly Fools)", query: "Silly Fools", photo: "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=300&auto=format&fit=crop&q=80" },
+            { name: "ต่าย อรทัย", query: "ต่าย อรทัย", photo: "https://images.unsplash.com/photo-1529626455594-4ff0802cfb7e?w=300&auto=format&fit=crop&q=80" },
+            { name: "บอดี้สแลม (Bodyslam)", query: "Bodyslam", photo: "https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=300&auto=format&fit=crop&q=80" },
+            { name: "โปเตโต้ (Potato)", query: "Potato", photo: "https://images.unsplash.com/photo-1498038432885-c6f3f1b912ee?w=300&auto=format&fit=crop&q=80" },
+            { name: "ดา เอ็นโดรฟิน", query: "ดา เอ็นโดรฟิน", photo: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=300&auto=format&fit=crop&q=80" },
+            { name: "ปาล์มมี่ (Palmy)", query: "Palmy", photo: "https://images.unsplash.com/photo-1517841905240-472988babdf9?w=300&auto=format&fit=crop&q=80" },
+            { name: "เบิร์ด ธงไชย", query: "เบิร์ด ธงไชย", photo: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=300&auto=format&fit=crop&q=80" },
+            { name: "แคลช (Clash)", query: "Clash", photo: "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=300&auto=format&fit=crop&q=80" }
+        ];
+
+        // สารบัญแนวเพลงตามหน้าเว็บ okeforyou
+        const GenresDirectory = [
+            { name: "ลูกทุ่งยอดฮิต", query: "ลูกทุ่ง คาราโอเกะ", icon: "fa-music", color: "from-amber-600 to-orange-500" },
+            { name: "หมอลำ / อีสานลำเพลิน", query: "หมอลำ คาราโอเกะ ตัดเสียง", icon: "fa-drum", color: "from-emerald-600 to-teal-500" },
+            { name: "สตริง / T-POP", query: "T-POP คาราโอเกะ", icon: "fa-microphone-lines", color: "from-pink-600 to-rose-500" },
+            { name: "ร็อกไทย พันธุ์แท้", query: "ร็อคไทย คาราโอเกะ", icon: "fa-guitar", color: "from-red-600 to-rose-700" },
+            { name: "ตำนานเพลงยุค 90s", query: "คาราโอเกะ ยุค 90", icon: "fa-compact-disc", color: "from-indigo-600 to-purple-600" },
+            { name: "Kamikaze / 2000s", query: "Kamikaze คาราโอเกะ", icon: "fa-bolt", color: "from-fuchsia-600 to-pink-600" },
+            { name: "อินดี้ / เพื่อชีวิต", query: "เพื่อชีวิต คาราโอเกะ", icon: "fa-campground", color: "from-yellow-600 to-amber-700" },
+            { name: "International Hits (สากล)", query: "English Karaoke instrumental", icon: "fa-globe", color: "from-blue-600 to-cyan-600" }
+        ];
+
+        let ytPlayerInstance = null;
+
+        // Initialize YouTube Player
+        window.onYouTubeIframeAPIReady = function() {
+            ytPlayerInstance = new YT.Player('ytPlayer', {
+                height: '100%',
+                width: '100%',
+                host: 'https://www.youtube-nocookie.com', // ใช้ Privacy Enhanced Mode เพื่อลดโฆษณาและแทร็กเกอร์
+                videoId: '',
+                playerVars: {
+                    'playsinline': 1,
+                    'hl': 'th',
+                    'cc_lang_pref': 'th',
+                    'controls': 1,
+                    'rel': 0,
+                    'modestbranding': 1,
+                    'iv_load_policy': 3, // ปิดการแสดงป้ายโฆษณา/Annotation แทรก
+                    'autoplay': 1,
+                    'origin': window.location.origin
+                },
+                events: {
+                    'onReady': onPlayerReady,
+                    'onStateChange': onPlayerStateChange,
+                    'onError': onPlayerEmbedError
+                }
+            });
+        };
+
+        function onPlayerReady(event) {
+            updateQueueDisplay();
+        }
+
+        // ฟังก์ชันช่วยกดข้ามโฆษณาหรืออินโทรทันที
+        function skipAdOrIntro() {
+            if (IS_REMOTE) return sendCmd({ t: 'skip' });
+            if (!ytPlayerInstance) return;
+            try {
+                const cur = ytPlayerInstance.getCurrentTime() || 0;
+                ytPlayerInstance.seekTo(cur + 5, true);
+            } catch(e) {}
+        }
+
+        function onPlayerStateChange(event) {
+            if (IS_REMOTE) return;
+            if (event.data === YT.PlayerState.ENDED) {
+                playNextInQueue();
+            } else if (event.data === YT.PlayerState.PLAYING) {
+                AppState.isPlaying = true;
+                document.getElementById('embedErrorBanner').classList.add('hidden');
+                if (AppState.cc) { try { ytPlayerInstance.loadModule('captions'); } catch (e) {} }
+                broadcastState();
+                updatePlayPauseIcon();
+            } else if (event.data === YT.PlayerState.PAUSED) {
+                AppState.isPlaying = false;
+                updatePlayPauseIcon();
+                broadcastState();
+            }
+        }
+
+        // จัดการกรณีค่ายเพลงบล็อก Embed (Code 150 หรือ 101)
+        function onPlayerEmbedError(event) {
+            if (IS_REMOTE) return;
+            console.warn("YouTube Player Embed Restriction Detected:", event.data);
+            if (event.data === 150 || event.data === 101 || event.data === 2) {
+                const banner = document.getElementById('embedErrorBanner');
+                const link = document.getElementById('externalYtLink');
+                if (AppState.currentSong) {
+                    link.href = `https://www.youtube.com/watch?v=${AppState.currentSong.id}`;
+                    document.getElementById('embedErrorDesc').innerText = `เพลง "${AppState.currentSong.title}" ถูกค่ายเพลงจำกัดสิทธิ์`;
+                }
+                banner.classList.remove('hidden');
+
+                // พยายามค้นหาเวอร์ชันดนตรีสดคาราโอเกะอัตโนมัติ
+                setTimeout(() => {
+                    autoFindAlternativeCover();
+                }, 1200);
+            }
+        }
+
+        // หาเวอร์ชันดนตรีสดทดแทน (ไม่สุ่มเพลงอื่นมาสวม) ลองไม่เกิน 2 ครั้งแล้วข้ามเพลง
+        async function autoFindAlternativeCover() {
+            const cur = AppState.currentSong;
+            if (!cur) return;
+            if ((AppState.altTries = (AppState.altTries || 0) + 1) > 2) {
+                AppState.altTries = 0;
+                toast('ไม่พบเวอร์ชันที่เล่นได้ ข้ามไปเพลงถัดไป');
+                return playNextInQueue();
+            }
+            const clean = cur.title.replace(/\(.*?\)|\[.*?\]/g, '').trim();
+            const list = await searchSongs(`${clean} คาราโอเกะ ดนตรีสด ตัดเสียง`, '');
+            const alt = list.find(v => v.id !== cur.id);
+            if (alt) playSongImmediately(alt.id, encodeURIComponent(alt.title), true);
+            else { toast('ไม่พบเวอร์ชันทดแทน'); playNextInQueue(); }
+        }
+
+        // ระบบ 2 หน้าจอ (Dual-Screen แบบเดียวกับ okeforyou)
+        function openTwoScreenMonitor() {
+            if (!AppState.currentSong) {
+                alert("กรุณาเลือกเพลงก่อนเปิดระบบ 2 หน้าจอ");
+                return;
+            }
+            const monitorUrl = `https://www.youtube.com/embed/${AppState.currentSong.id}?autoplay=1&controls=1`;
+            const win = window.open(monitorUrl, "DenverOkeMonitor", "width=1280,height=720,menubar=no,toolbar=no,location=no,status=no");
+            if (win) {
+                win.focus();
+            } else {
+                window.open(`https://www.youtube.com/watch?v=${AppState.currentSong.id}`, "_blank");
+            }
+        }
+
+        /**
+         * Multi-Engine YouTube Search Pipeline (Reverse Engineered)
+         * แก้ไข: ดึงข้อมูลวิดีโอของศิลปิน/วงที่ค้นหาจริงจาก YouTube โดยตรงผ่าน High-Performance Live HTML Parser
+         * ไม่มีการนำ Video ID อื่นมาสวมรอยเด็ดขาด
+         */
+        async function executeOmniSearch(forcedQuery = null) {
+            const rawQuery = (forcedQuery !== null ? forcedQuery : document.getElementById('songSearchInput').value).trim();
+            if (!rawQuery) {
+                goToHome();
+                return;
+            }
+
+            // ถ้าเป็นการวางลิงก์ YouTube ตรงๆ
+            const ytRegex = /(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/|v\/))([\w-]{11})/;
+            const match = rawQuery.match(ytRegex);
+            if (match && match[1]) {
+                const vidId = match[1];
+                showSearchResults([{
+                    id: vidId,
+                    title: "วิดีโอจาก YouTube (" + vidId + ")",
+                    artist: "กำหนดเอง",
+                    duration: "YouTube"
+                }], rawQuery);
+                return;
+            }
+
+            // เตรียมคำค้นหา: ค้นคาราโอเกะ หรือ เพลงตามโหมด
+            const searchQuery = AppState.isKaraokeOnlyMode ? `${rawQuery} คาราโอเกะ ตัดเสียง` : rawQuery;
+
+            // แสดงหน้าผลลัพธ์และ Spinner
+            document.getElementById('homeDefaultSection').classList.add('hidden');
+            document.getElementById('searchResultsSection').classList.remove('hidden');
+            document.getElementById('searchSpinner').classList.remove('hidden');
+            document.getElementById('searchResultsGrid').innerHTML = '';
+            document.getElementById('searchResultTitle').innerHTML = `<i class="fa-solid fa-magnifying-glass text-rose-500"></i> กำลังค้นหา: "${esc(rawQuery)}"`;
+
+            let songs = await searchSongs(searchQuery, rawQuery);
+            if (AppState.isKaraokeOnlyMode) songs = rankKaraoke(songs);
+
+            document.getElementById('searchSpinner').classList.add('hidden');
+            showSearchResults(songs, rawQuery);
+        }
+
+        const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+        const decodeEntities = s => { const t = document.createElement('textarea'); t.innerHTML = s; return t.value; };
+        const AVATAR_GRADS = ['from-rose-600 to-pink-500','from-indigo-600 to-purple-600','from-amber-600 to-orange-500','from-emerald-600 to-teal-500','from-blue-600 to-cyan-600','from-fuchsia-600 to-pink-600'];
+        const PIPED = ['https://pipedapi.kavin.rocks','https://pipedapi.adminforge.de','https://api.piped.private.coffee'];
+        const KARA_RE = /คาราโอเกะ|karaoke|instrumental|backing|ตัดเสียง|off ?vocal|no ?vocal|minus ?one|ดนตรีสด|ไม่มีเสียงร้อง|midi/i;
+        const isKaraoke = s => KARA_RE.test(s.title || '');
+        // ถ้ามีคลิปคาราโอเกะพอ แสดงเฉพาะคลิปคาราโอเกะ ไม่งั้นเอาคาราโอเกะขึ้นก่อน
+        const rankKaraoke = list => { const k = list.filter(isKaraoke); return k.length >= 3 ? k : k.concat(list.filter(x => !isKaraoke(x))); };
+        const searchCache = {};
+
+        function toast(msg) {
+            const t = document.getElementById('toast');
+            t.innerText = msg; t.style.opacity = 1;
+            clearTimeout(toast.tid); toast.tid = setTimeout(() => t.style.opacity = 0, 2200);
+        }
+
+        async function fetchJson(url, ms = 5000) {
+            const c = new AbortController(), tid = setTimeout(() => c.abort(), ms);
+            try { const r = await fetch(url, { signal: c.signal }); if (!r.ok) throw new Error(r.status); return await r.json(); }
+            finally { clearTimeout(tid); }
+        }
+
+        function isoDur(iso) {
+            const m = /PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/.exec(iso) || [];
+            const sec = (+m[1] || 0) * 3600 + (+m[2] || 0) * 60 + (+m[3] || 0);
+            return sec >= 3600 ? `${Math.floor(sec / 3600)}:${String(Math.floor(sec % 3600 / 60)).padStart(2, '0')}:${String(sec % 60).padStart(2, '0')}` : formatDuration(sec);
+        }
+
+        async function scrapeYouTube(q, label) {
+            try {
+                const r = await fetchJson(`https://api.allorigins.win/get?url=${encodeURIComponent('https://www.youtube.com/results?search_query=' + encodeURIComponent(q))}`, 7000);
+                const m = r.contents.match(/ytInitialData\s*=\s*({.+?});<\/script>/);
+                if (!m) return [];
+                const secs = JSON.parse(m[1]).contents?.twoColumnSearchResultsRenderer?.primaryContents?.sectionListRenderer?.contents || [];
+                return secs.flatMap(x => x.itemSectionRenderer?.contents || []).filter(i => i.videoRenderer).map(({ videoRenderer: v }) => ({
+                    id: v.videoId, title: v.title?.runs?.[0]?.text || '', artist: v.ownerText?.runs?.[0]?.text || label, duration: v.lengthText?.simpleText || ''
+                }));
+            } catch (e) { return []; }
+        }
+
+        // ลำดับ: YouTube Data API (ถ้าใส่ key) -> Piped -> scrape ผ่าน proxy  (ไม่มีการสร้างผลลัพธ์ปลอม)
+        async function searchSongs(q, label) {
+            if (searchCache[q]) return searchCache[q];
+            let songs = [];
+            let key = ''; try { key = localStorage.getItem('yt_api_key') || ''; } catch (e) {}
+            if (key) {
+                try {
+                    const r = await fetchJson(`https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&videoEmbeddable=true&maxResults=30&q=${encodeURIComponent(q)}&key=${key}`);
+                    const d = await fetchJson(`https://www.googleapis.com/youtube/v3/videos?part=contentDetails&id=${r.items.map(i => i.id.videoId).join(',')}&key=${key}`);
+                    const dur = {}; d.items.forEach(v => dur[v.id] = isoDur(v.contentDetails.duration));
+                    songs = r.items.map(i => ({ id: i.id.videoId, title: decodeEntities(i.snippet.title), artist: decodeEntities(i.snippet.channelTitle), duration: dur[i.id.videoId] || '' }));
+                } catch (e) { console.warn('YouTube API error', e); }
+            }
+            for (const base of songs.length ? [] : PIPED) {
+                try {
+                    const d = await fetchJson(`${base}/search?q=${encodeURIComponent(q)}&filter=videos`, 4000);
+                    songs = (d.items || []).map(v => ({ id: (v.url || '').split('v=')[1], title: v.title, artist: v.uploaderName || label, duration: formatDuration(v.duration) })).filter(x => x.id && x.id.length === 11);
+                    if (songs.length) break;
+                } catch (e) {}
+            }
+            if (!songs.length) songs = (await scrapeYouTube(q, label)).filter(x => x.id && x.title);
+            if (songs.length) searchCache[q] = songs;
+            return songs;
+        }
+
+        function setApiKey() {
+            const k = prompt('ใส่ YouTube Data API v3 Key เพื่อให้ค้นหาเสถียร (เว้นว่างเพื่อลบ)', (() => { try { return localStorage.getItem('yt_api_key') || ''; } catch (e) { return ''; } })());
+            if (k === null) return;
+            try { k.trim() ? localStorage.setItem('yt_api_key', k.trim()) : localStorage.removeItem('yt_api_key'); } catch (e) {}
+            Object.keys(searchCache).forEach(x => delete searchCache[x]);
+            toast('บันทึกแล้ว'); renderFeaturedKaraoke();
+        }
+
+        function showSearchResults(songs, query) {
+            const grid = document.getElementById('searchResultsGrid');
+            const countLabel = document.getElementById('searchResultCount');
+            const titleLabel = document.getElementById('searchResultTitle');
+
+            titleLabel.innerHTML = `<i class="fa-solid fa-music text-rose-500"></i> ผลการค้นหา: "${esc(query)}"`;
+            countLabel.innerText = `พบ ${songs.length} รายการ`;
+            grid.innerHTML = '';
+
+            if (songs.length === 0) {
+                grid.innerHTML = `
+                    <div class="col-span-full py-16 text-center text-slate-500">
+                        <i class="fa-solid fa-circle-exclamation text-3xl mb-2 opacity-50"></i>
+                        <p class="text-sm">ไม่พบผลลัพธ์ หรือบริการค้นหาไม่ตอบสนอง ลองคำอื่น หรือกดไอคอนฟันเฟืองที่มุมบนเพื่อใส่ YouTube API Key</p>
+                    </div>
+                `;
+                return;
+            }
+
+            songs.forEach(song => {
+                grid.appendChild(createSongCard(song));
+            });
+        }
+
+        // การ์ดเพลง: escape ข้อความทั้งหมด และผูกปุ่มด้วย closure (ชื่อเพลงมีเครื่องหมายคำพูดได้)
+        function createSongCard(song) {
+            const card = document.createElement('div');
+            card.className = "bg-[#161b26] hover:bg-slate-800/90 border border-slate-800 hover:border-slate-700 rounded-xl p-2.5 transition flex gap-3 group relative shadow-sm";
+            card.innerHTML = `
+                <div class="relative w-28 h-20 rounded-lg overflow-hidden shrink-0 bg-slate-900 border border-slate-700/60">
+                    <img src="https://img.youtube.com/vi/${esc(song.id)}/hqdefault.jpg" alt="" loading="lazy" class="w-full h-full object-cover group-hover:scale-105 transition duration-300">
+                    <span class="absolute bottom-1 right-1 bg-black/85 text-[9px] px-1 rounded text-slate-200 font-mono">${esc(song.duration || 'Karaoke')}</span>
+                </div>
+                <div class="flex-1 min-w-0 flex flex-col justify-between py-0.5">
+                    <div>
+                        <h4 class="text-[13px] leading-snug font-semibold text-slate-100 line-clamp-2 break-words group-hover:text-rose-400 transition" title="${esc(song.title)}">${esc(song.title)}</h4>
+                        <p class="text-[11px] text-slate-400 truncate mt-0.5">${esc(song.artist)}</p>
+                        ${isKaraoke(song) ? '<span class="inline-block mt-1 text-[9px] px-1.5 py-0.5 rounded bg-emerald-600/20 text-emerald-300 border border-emerald-600/30">คาราโอเกะ</span>' : '<span class="inline-block mt-1 text-[9px] px-1.5 py-0.5 rounded bg-amber-600/20 text-amber-300 border border-amber-600/30">ไม่ใช่คาราโอเกะ</span>'}
+                    </div>
+                    <div class="flex items-center gap-1.5 mt-2">
+                        <button data-act="play" class="whitespace-nowrap px-2.5 py-1 bg-rose-600 hover:bg-rose-500 active:scale-95 text-white rounded text-[11px] font-medium transition flex items-center gap-1 shadow"><i class="fa-solid fa-play text-[9px]"></i> ร้องเลย</button>
+                        <button data-act="queue" class="whitespace-nowrap px-2.5 py-1 bg-slate-700 hover:bg-slate-600 active:scale-95 text-slate-200 rounded text-[11px] font-medium transition flex items-center gap-1"><i class="fa-solid fa-plus text-[9px]"></i> ต่อคิว</button>
+                    </div>
+                </div>`;
+            const t = encodeURIComponent(song.title);
+            card.querySelector('[data-act=play]').onclick = () => playSongImmediately(song.id, t);
+            card.querySelector('[data-act=queue]').onclick = () => addToQueue(song.id, t);
+            return card;
+        }
+
+        // Render หน้าแรก: ศิลปินยอดฮิต
+        async function loadArtistPhoto(artist, box) {
+            const key = 'artistImg:' + artist.query;
+            let id = null;
+            try { id = localStorage.getItem(key); } catch (e) {}
+            if (!id) {
+                const list = await searchSongs(artist.query + ' official MV', '');
+                const name = artist.query.toLowerCase().split(' ')[0];
+                const v = list.find(x => x.title.toLowerCase().includes(name)) || list[0];
+                if (!v) return;
+                id = v.id;
+                try { localStorage.setItem(key, id); } catch (e) {}
+            }
+            const img = new Image();
+            img.className = 'w-full h-full object-cover'; img.alt = '';
+            img.onload = () => { box.innerHTML = ''; box.appendChild(img); };
+            img.src = `https://img.youtube.com/vi/${esc(id)}/mqdefault.jpg`;
+        }
+
+        async function loadArtistPhotos(jobs) {
+            await Promise.all([0, 1, 2].map(async () => {
+                while (jobs.length) { const [a, b] = jobs.shift(); try { await loadArtistPhoto(a, b); } catch (e) {} }
+            }));
+        }
+
+        function renderTopArtists() {
+            const grid = document.getElementById('topArtistsGrid');
+            grid.innerHTML = '';
+            const jobs = [];
+            PopularArtistsList.forEach((artist, i) => {
+                const col = document.createElement('div');
+                col.className = "artist-card flex flex-col items-center bg-[#161b26] hover:bg-slate-800/80 border border-slate-800 hover:border-rose-500/50 p-3 rounded-2xl cursor-pointer transition group shadow-sm";
+                col.onclick = () => {
+                    document.getElementById('songSearchInput').value = artist.query;
+                    executeOmniSearch(artist.query);
+                };
+                col.innerHTML = `
+                    <div class="w-16 h-16 sm:w-20 sm:h-20 rounded-full overflow-hidden border-2 border-slate-700 group-hover:border-rose-500 transition mb-2 shadow bg-slate-900 artist-img">
+                        <div class="w-full h-full flex items-center justify-center text-lg font-bold text-white bg-gradient-to-br ${AVATAR_GRADS[i % AVATAR_GRADS.length]}">${esc(artist.query.slice(0, 2).toUpperCase())}</div>
+                    </div>
+                    <span class="text-xs font-semibold text-slate-200 group-hover:text-rose-400 truncate w-full text-center">${artist.name}</span>
+                    <span class="text-[10px] text-slate-400 mt-0.5">ค้นหาเพลง</span>
+                `;
+                grid.appendChild(col);
+                jobs.push([artist, col.querySelector('.artist-img')]);
+            });
+            loadArtistPhotos(jobs);
+        }
+
+        // Render หน้าแรก: สารบัญแนวเพลง
+        function renderGenres() {
+            const grid = document.getElementById('genreCategoryGrid');
+            grid.innerHTML = '';
+            GenresDirectory.forEach(g => {
+                const btn = document.createElement('button');
+                btn.className = "flex items-center gap-3 p-3 rounded-xl bg-[#161b26] hover:bg-slate-800 border border-slate-800 hover:border-slate-700 transition text-left group shadow-sm";
+                btn.onclick = () => {
+                    document.getElementById('songSearchInput').value = g.name;
+                    executeOmniSearch(g.query);
+                };
+                btn.innerHTML = `
+                    <div class="w-10 h-10 rounded-lg bg-gradient-to-tr ${g.color} flex items-center justify-center text-white shrink-0 shadow-md">
+                        <i class="fa-solid ${g.icon} text-sm"></i>
+                    </div>
+                    <div class="truncate min-w-0">
+                        <p class="text-xs font-bold text-slate-200 group-hover:text-rose-400 truncate">${g.name}</p>
+                        <span class="text-[10px] text-slate-400">ค้นหาเพลงแนวนี้</span>
+                    </div>
+                `;
+                grid.appendChild(btn);
+            });
+        }
+
+        // Render หน้าแรก: เพลงแนะนำ
+        async function renderFeaturedKaraoke() {
+            const grid = document.getElementById('featuredKaraokeGrid');
+            grid.innerHTML = '<div class="col-span-full py-8 text-center text-slate-500 text-xs"><i class="fa-solid fa-circle-notch fa-spin mr-2"></i>กำลังโหลดเพลงแนะนำ...</div>';
+            const songs = await searchSongs('เพลงฮิต คาราโอเกะ ตัดเสียง', '');
+            grid.innerHTML = songs.length ? '' : '<div class="col-span-full py-8 text-center text-slate-500 text-xs">โหลดเพลงแนะนำไม่ได้ กดฟันเฟืองที่มุมบนเพื่อใส่ YouTube API Key</div>';
+            songs.slice(0, 12).forEach(song => grid.appendChild(createSongCard(song)));
+        }
+
+        function toggleSearchType(isKaraoke) {
+            AppState.isKaraokeOnlyMode = isKaraoke;
+            const kBtn = document.getElementById('typeKaraokeBtn');
+            const aBtn = document.getElementById('typeAllBtn');
+            if (isKaraoke) {
+                kBtn.className = "px-2 py-1 rounded bg-rose-600 text-white font-medium flex items-center gap-1 transition";
+                aBtn.className = "px-2 py-1 rounded text-slate-400 hover:text-white transition";
+            } else {
+                aBtn.className = "px-2 py-1 rounded bg-rose-600 text-white font-medium flex items-center gap-1 transition";
+                kBtn.className = "px-2 py-1 rounded text-slate-400 hover:text-white transition";
+            }
+            executeOmniSearch();
+        }
+
+        function setActiveNav(n) {
+            document.querySelectorAll('.sidebar-nav-btn').forEach(b => {
+                const on = b.dataset.nav === n;
+                b.classList.toggle('bg-rose-600', on); b.classList.toggle('text-white', on); b.classList.toggle('text-slate-300', !on);
+            });
+        }
+
+        function setMobileView(v) {
+            document.body.classList.toggle('view-player', v === 'player');
+            [['Home','home'],['Player','player']].forEach(([n, k]) => {
+                const b = document.getElementById('nav' + n);
+                b.classList.toggle('text-rose-400', k === v); b.classList.toggle('text-slate-400', k !== v);
+            });
+        }
+
+        function goToHome() {
+            setActiveNav('home'); setMobileView('home');
+            document.getElementById('songSearchInput').value = '';
+            document.getElementById('searchResultsSection').classList.add('hidden');
+            document.getElementById('homeDefaultSection').classList.remove('hidden');
+        }
+
+        function filterPresetCategory(cat) {
+            setActiveNav(cat); setMobileView('home');
+            if (cat === 'chart') {
+                executeOmniSearch("เพลงฮิตติดชาร์ต คาราโอเกะ");
+            } else if (cat === 'station') {
+                executeOmniSearch("รวมเพลงคาราโอเกะ ต่อเนื่อง");
+            } else if (cat === 'playlist') {
+                executeOmniSearch("เพลย์ลิสต์ คาราโอเกะ ตัดเสียง");
+            }
+        }
+
+        function toggleSidebarMenu() {
+            const sb = document.getElementById('mainSidebar');
+            sb.style.display = sb.style.display === 'none' ? '' : 'none';
+        }
+
+        // จัดการคิวเพลง & เล่นเพลง
+        function addToQueue(id, rawTitle) {
+            const title = decodeURIComponent(rawTitle);
+            if (IS_REMOTE) { sendCmd({ t: 'add', id, title }); toast('ส่งเข้าคิวแล้ว'); return; }
+            AppState.queue.push({ id, title });
+            toast('เพิ่มเข้าคิวแล้ว');
+            updateQueueDisplay();
+
+            if (!AppState.currentSong) {
+                playNextInQueue();
+            }
+        }
+
+        function playSongImmediately(id, rawTitle, isAlt) {
+            const title = decodeURIComponent(rawTitle);
+            if (IS_REMOTE) { sendCmd({ t: 'play', id, title }); toast('สั่งเล่นบนจอหลักแล้ว'); return; }
+            if (!isAlt) AppState.altTries = 0;
+            AppState.currentSong = { id, title };
+            loadAndPlayVideo(id, title);
+            setMobileView('player');
+        }
+
+        function loadAndPlayVideo(videoId, title) {
+            if (ytPlayerInstance && ytPlayerInstance.loadVideoById) {
+                ytPlayerInstance.loadVideoById(videoId);
+                document.getElementById('emptyPlayerBanner').classList.add('hidden');
+                document.getElementById('nowPlayingBadge').classList.remove('hidden');
+                document.getElementById('currentSongTitle').innerText = title;
+                AppState.isPlaying = true;
+                updatePlayPauseIcon();
+                broadcastState();
+            }
+        }
+
+        function playNextInQueue() {
+            if (AppState.queue.length > 0) {
+                const nextSong = AppState.queue.shift();
+                AppState.currentSong = nextSong;
+                loadAndPlayVideo(nextSong.id, nextSong.title);
+                updateQueueDisplay();
+            } else {
+                AppState.currentSong = null;
+                broadcastState();
+                document.getElementById('emptyPlayerBanner').classList.remove('hidden');
+                document.getElementById('nowPlayingBadge').classList.add('hidden');
+                if (ytPlayerInstance && ytPlayerInstance.stopVideo) {
+                    ytPlayerInstance.stopVideo();
+                }
+            }
+        }
+
+        function updateQueueDisplay() {
+            const list = document.getElementById('queueList');
+            const counter = document.getElementById('queueCounter');
+            counter.innerText = `${AppState.queue.length} เพลง`;
+            const badge = document.getElementById('navQueueBadge');
+            badge.innerText = AppState.queue.length; badge.classList.toggle('hidden', !AppState.queue.length);
+            if (!IS_REMOTE) { try { localStorage.setItem('tq', JSON.stringify(AppState.queue)); } catch (e) {} broadcastState(); }
+
+            list.innerHTML = '';
+            if (AppState.queue.length === 0) {
+                list.innerHTML = `
+                    <div class="h-32 flex flex-col items-center justify-center text-slate-500 text-xs">
+                        <i class="fa-solid fa-music text-lg mb-1 opacity-30"></i>
+                        ยังไม่มีเพลงในคิวต่อ
+                    </div>
+                `;
+                return;
+            }
+
+            AppState.queue.forEach((song, idx) => {
+                const row = document.createElement('div');
+                row.className = "flex items-center justify-between p-2 rounded-lg bg-slate-800/40 hover:bg-slate-800/70 border border-slate-700/40 text-xs transition";
+                row.innerHTML = `
+                    <div class="flex items-center gap-2.5 min-w-0 pr-2">
+                        <span class="w-5 text-center font-bold text-rose-400 text-[11px]">${idx + 1}</span>
+                        <div class="truncate">
+                            <p class="font-medium text-slate-200 truncate">${esc(song.title)}</p>
+                            <span class="text-[10px] text-slate-400">รอร้อง</span>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-1.5 shrink-0">
+                        <button onclick="jumpQueue(${idx})" title="เล่นเพลงนี้ทันที" class="p-2 hover:text-emerald-400 text-slate-400 transition"><i class="fa-solid fa-play"></i></button>
+                        <button onclick="prioritizeQueue(${idx})" title="ลัดคิวเป็นเพลงถัดไป" class="p-2 hover:text-rose-400 text-slate-400 transition">
+                            <i class="fa-solid fa-arrow-up"></i>
+                        </button>
+                        <button onclick="removeFromQueue(${idx})" title="ลบออก" class="p-2 hover:text-red-400 text-slate-400 transition">
+                            <i class="fa-solid fa-trash-can"></i>
+                        </button>
+                    </div>
+                `;
+                list.appendChild(row);
+            });
+        }
+
+        function prioritizeQueue(idx) {
+            if (IS_REMOTE) return sendCmd({ t: 'prio', i: idx });
+            if (idx > 0) {
+                const item = AppState.queue.splice(idx, 1)[0];
+                AppState.queue.unshift(item);
+                updateQueueDisplay();
+            }
+        }
+
+        function removeFromQueue(idx) {
+            if (IS_REMOTE) return sendCmd({ t: 'remove', i: idx });
+            AppState.queue.splice(idx, 1);
+            updateQueueDisplay();
+        }
+
+        function clearQueue() {
+            if (IS_REMOTE) return sendCmd({ t: 'clear' });
+            AppState.queue = [];
+            updateQueueDisplay();
+        }
+
+        // เครื่องเล่นควบคุม
+        function togglePlayPause() {
+            if (IS_REMOTE) return sendCmd({ t: 'toggle' });
+            if (!AppState.currentSong && AppState.queue.length) return playNextInQueue();
+            if (!ytPlayerInstance) return;
+            const state = ytPlayerInstance.getPlayerState();
+            if (state === YT.PlayerState.PLAYING) {
+                ytPlayerInstance.pauseVideo();
+            } else {
+                ytPlayerInstance.playVideo();
+            }
+        }
+
+        function updatePlayPauseIcon() {
+            const btn = document.getElementById('playPauseBtn');
+            if (AppState.isPlaying) {
+                btn.innerHTML = '<i class="fa-solid fa-pause text-sm"></i><span class="text-[10px] mt-0.5">หยุด</span>';
+            } else {
+                btn.innerHTML = '<i class="fa-solid fa-play text-sm"></i><span class="text-[10px] mt-0.5">เล่น</span>';
+            }
+        }
+
+        function controlPlayer(action) {
+            if (IS_REMOTE) return sendCmd({ t: action });
+            if (!ytPlayerInstance) return;
+            if (action === 'replay') {
+                ytPlayerInstance.seekTo(0);
+                ytPlayerInstance.playVideo();
+            } else if (action === 'next') {
+                playNextInQueue();
+            }
+        }
+
+        function toggleMute() {
+            if (!ytPlayerInstance) return;
+            const btn = document.getElementById('muteBtn');
+            if (ytPlayerInstance.isMuted()) {
+                ytPlayerInstance.unMute();
+                btn.innerHTML = '<i class="fa-solid fa-volume-high text-sm"></i><span class="text-[10px] mt-0.5">ปิดเสียง</span>';
+            } else {
+                ytPlayerInstance.mute();
+                btn.innerHTML = '<i class="fa-solid fa-volume-xmark text-sm text-rose-500"></i><span class="text-[10px] mt-0.5">เปิดเสียง</span>';
+            }
+        }
+
+        function toggleFullScreen() {
+            const playerElem = document.getElementById('playerContainer');
+            if (!document.fullscreenElement) {
+                playerElem.requestFullscreen().catch(err => console.log(err));
+            } else {
+                document.exitFullscreen();
+            }
+        }
+
+        // QR Code มือถือ
+        let qrGenerated = false;
+        function toggleMobileRemoteModal() {
+            const modal = document.getElementById('mobileRemoteModal');
+            modal.classList.toggle('hidden');
+
+            if (!modal.classList.contains('hidden') && !qrGenerated) {
+                const qrContainer = document.getElementById('qrcodeCanvas');
+                qrContainer.innerHTML = '';
+                new QRCode(qrContainer, {
+                    text: remoteUrl(),
+                    width: 170,
+                    height: 170,
+                    colorDark : "#0f172a",
+                    colorLight : "#ffffff",
+                    correctLevel : QRCode.CorrectLevel.M
+                });
+                qrGenerated = true;
+            }
+        }
+
+        function toggleViewMode() {
+            AppState.isRemoteOnlyMode = !AppState.isRemoteOnlyMode;
+            const center = document.getElementById('centerCatalogPanel');
+            const right = document.getElementById('rightPlayerPanel');
+            const btn = document.getElementById('viewModeBtn');
+
+            if (AppState.isRemoteOnlyMode) {
+                document.body.classList.add('remote-only');
+                btn.innerHTML = '<i class="fa-solid fa-tv"></i> <span class="hidden sm:inline">โหมดจอคาราโอเกะ (PC)</span>';
+            } else {
+                document.body.classList.remove('remote-only');
+                btn.innerHTML = '<i class="fa-solid fa-mobile-screen"></i> <span class="hidden sm:inline">โหมดรีโมทมือถือ</span>';
+            }
+        }
+
+        function formatDuration(seconds) {
+            if (!seconds) return "Karaoke";
+            if (typeof seconds === 'string' && seconds.includes(':')) return seconds;
+            const m = Math.floor(seconds / 60);
+            const s = Math.floor(seconds % 60);
+            return `${m}:${s < 10 ? '0' : ''}${s}`;
+        }
+
+        // YouTube ไม่ให้เว็บอื่นเข้าถึงสัญญาณเสียงของ iframe จึงตัดเสียงร้องจริงไม่ได้
+        // ปุ่มนี้จึงค้นหาและสลับไปคลิปเวอร์ชันคาราโอเกะ/ดนตรีเปล่าของเพลงเดียวกันแทน
+        async function findKaraokeVersion() {
+            if (IS_REMOTE) return sendCmd({ t: 'vocal' });
+            const cur = AppState.currentSong;
+            if (!cur) return toast('เลือกเพลงก่อน');
+            if (isKaraoke(cur)) return toast('เพลงนี้เป็นเวอร์ชันคาราโอเกะอยู่แล้ว');
+            toast('กำลังหาเวอร์ชันตัดเสียงร้อง...');
+            const clean = cur.title.replace(/\(.*?\)|\[.*?\]|official|music video|\bmv\b|lyrics?/gi, '').replace(/\s+/g, ' ').trim();
+            const list = await searchSongs(`${clean} คาราโอเกะ ตัดเสียงร้อง`, '');
+            const alt = list.find(v => v.id !== cur.id && isKaraoke(v));
+            if (alt) { playSongImmediately(alt.id, encodeURIComponent(alt.title), true); toast('สลับเป็นเวอร์ชันคาราโอเกะแล้ว'); }
+            else toast('ไม่พบเวอร์ชันคาราโอเกะของเพลงนี้');
+        }
+
+        // คำบรรยาย CC: ใช้ได้เฉพาะวิดีโอที่ YouTube มีแทร็กคำบรรยายให้
+        function toggleCC() {
+            if (IS_REMOTE) return sendCmd({ t: 'cc' });
+            if (!ytPlayerInstance) return;
+            AppState.cc = !AppState.cc;
+            try {
+                if (AppState.cc) { ytPlayerInstance.loadModule('captions'); ytPlayerInstance.setOption('captions', 'reload', true); }
+                else ytPlayerInstance.unloadModule('captions');
+            } catch (e) {}
+            const b = document.getElementById('ccBtn');
+            ['bg-rose-600', 'text-white'].forEach(c => b.classList.toggle(c, AppState.cc));
+            ['bg-slate-800', 'text-slate-300'].forEach(c => b.classList.toggle(c, !AppState.cc));
+            toast(AppState.cc ? 'เปิดคำบรรยาย (ถ้าคลิปนี้มี)' : 'ปิดคำบรรยาย');
+        }
+
+        function jumpQueue(i) {
+            if (IS_REMOTE) return sendCmd({ t: 'jump', i });
+            const s = AppState.queue.splice(i, 1)[0];
+            if (!s) return;
+            AppState.currentSong = s; AppState.altTries = 0;
+            loadAndPlayVideo(s.id, s.title);
+            updateQueueDisplay();
+        }
+
+        // มือถือที่เป็นรีโมทเล่นคลิปเดียวกับจอหลักแบบปิดเสียง ไว้ดูเนื้อเพลง/ภาพ
+        function mirrorVideo(m) {
+            const yp = ytPlayerInstance;
+            if (!yp || !yp.loadVideoById) return;
+            try {
+                if (!m.current) { AppState.mirrorId = null; yp.stopVideo(); return; }
+                if (AppState.mirrorId !== m.current.id) {
+                    AppState.mirrorId = m.current.id;
+                    yp.loadVideoById({ videoId: m.current.id, startSeconds: Math.max(0, m.time || 0) });
+                    yp.mute();
+                } else if (m.playing) {
+                    if (Math.abs(yp.getCurrentTime() - (m.time || 0)) > 3) yp.seekTo(m.time || 0, true);
+                    yp.playVideo();
+                } else yp.pauseVideo();
+            } catch (e) {}
+        }
+
+        let peer = null, remoteConn = null, hostConns = [];
+        const remoteUrl = () => location.origin + location.pathname + '?room=' + AppState.roomCode;
+
+        function sendCmd(m) {
+            if (remoteConn && remoteConn.open) remoteConn.send(m); else toast('ยังไม่ได้เชื่อมต่อกับจอหลัก');
+        }
+
+        function broadcastState() {
+            let time = 0; try { time = ytPlayerInstance.getCurrentTime() || 0; } catch (e) {}
+            const m = { t: 'state', queue: AppState.queue, current: AppState.currentSong, playing: AppState.isPlaying, time };
+            hostConns.forEach(c => c.open && c.send(m));
+        }
+
+        function handleRemoteCmd(m) {
+            const enc = encodeURIComponent;
+            if (m.t === 'add') addToQueue(m.id, enc(m.title));
+            else if (m.t === 'play') playSongImmediately(m.id, enc(m.title));
+            else if (m.t === 'toggle') togglePlayPause();
+            else if (m.t === 'next' || m.t === 'replay') controlPlayer(m.t);
+            else if (m.t === 'prio') prioritizeQueue(m.i);
+            else if (m.t === 'remove') removeFromQueue(m.i);
+            else if (m.t === 'clear') clearQueue();
+            else if (m.t === 'jump') jumpQueue(m.i);
+            else if (m.t === 'vocal') findKaraokeVersion();
+            else if (m.t === 'cc') toggleCC();
+            else if (m.t === 'skip') skipAdOrIntro();
+        }
+
+        function initHost() {
+            if (typeof Peer === 'undefined') return;
+            peer = new Peer('denveroke-' + AppState.roomCode);
+            peer.on('connection', c => {
+                hostConns.push(c);
+                c.on('open', () => { toast('มือถือเชื่อมต่อแล้ว'); broadcastState(); });
+                c.on('data', handleRemoteCmd);
+                c.on('close', () => { hostConns = hostConns.filter(x => x !== c); });
+            });
+            peer.on('error', e => console.warn('Peer error', e.type));
+        }
+
+        function connectRemote() {
+            document.body.classList.add('view-remote');
+            setMobileView('player');
+            document.getElementById('roomCodeDisplay').innerText = REMOTE_ROOM;
+            peer = new Peer();
+            peer.on('open', () => {
+                remoteConn = peer.connect('denveroke-' + REMOTE_ROOM, { reliable: true });
+                remoteConn.on('open', () => toast('เชื่อมต่อจอหลักแล้ว'));
+                remoteConn.on('close', () => toast('การเชื่อมต่อหลุด'));
+                remoteConn.on('data', m => {
+                    if (m.t !== 'state') return;
+                    AppState.queue = m.queue; AppState.currentSong = m.current; AppState.isPlaying = !!m.playing; updatePlayPauseIcon(); mirrorVideo(m);
+                    updateQueueDisplay();
+                    document.getElementById('emptyPlayerBanner').classList.toggle('hidden', !!m.current);
+                    document.getElementById('nowPlayingBadge').classList.toggle('hidden', !m.current);
+                    if (m.current) document.getElementById('currentSongTitle').innerText = m.current.title;
+                });
+            });
+            peer.on('error', () => toast('เชื่อมต่อไม่สำเร็จ ตรวจสอบรหัสห้อง'));
+        }
+
+        // Initialize Room Code on display
+        document.getElementById('roomCodeDisplay').innerText = AppState.roomCode;
+        document.getElementById('modalRoomCode').innerText = AppState.roomCode;
+        document.getElementById('remoteUrlHint').innerText = location.protocol === 'file:' ? 'เปิดจากไฟล์ในเครื่อง มือถือจะเข้าไม่ได้ ต้องอัปโหลดขึ้นโฮสต์ HTTPS ก่อน' : remoteUrl();
+        renderTopArtists(); renderGenres(); renderFeaturedKaraoke(); updateQueueDisplay(); setActiveNav('home');
+        setInterval(() => { if (!IS_REMOTE && AppState.isPlaying && hostConns.length) broadcastState(); }, 5000);
+        if (typeof Peer !== 'undefined') { IS_REMOTE ? connectRemote() : initHost(); }
+    </script>
+</body>
+</html>
